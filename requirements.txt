@@ -1,8 +1,9 @@
-fastapi
-uvicorn
-numpy
-faiss-cpu
-Pillow
-opencv-python
-insightface
-onnxruntime
+fastapi==0.116.1
+uvicorn==0.35.0
+numpy==2.0.2
+faiss-cpu==1.11.0.post1
+Pillow==11.3.0
+opencv-python==4.12.0.88
+insightface==0.7.3
+onnxruntime==1.19.2
+python-multipart==0.0.20

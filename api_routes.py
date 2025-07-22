@@ -16,12 +16,15 @@ def setup_routes(app: FastAPI, index):
             img = Image.open(io.BytesIO(contents))
             embedding = get_face_embedding(img)
 
-            if embedding is None:
-                raise HTTPException(status_code=400, detail="No face detected in the image.")
+            # 添加检查确保embedding是有效数组
+            if not isinstance(embedding, np.ndarray) or embedding.size == 0:
+                raise HTTPException(status_code=400, detail="Invalid face embedding.")
 
             # 检查是否已存在相似人脸
             distances, indices = search_faiss_index(index, embedding)
-            if len(indices) > 0 and distances[0][0] < 0.6:  # 阈值设为0.6
+            print(len(distances))
+            print(distances[0][0])
+            if len(indices) > 0:
                 print("已存在该人脸信息, 不再新增")
                 raise HTTPException(status_code=409, detail="Similar face already exists in the system.")
 
