@@ -1,10 +1,11 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import JSONResponse
+import faiss
 import numpy as np
 from PIL import Image
 import io
 import time
-from config import FACE_RECOGNITION_THRESHOLD
+from config import FACE_RECOGNITION_THRESHOLD,FAISS_INDEX_PATH
 from face_recognition import get_face_embedding
 from database import get_db_connection, insert_user, get_all_users, check_username_exists, get_user_by_username, delete_user_by_username, get_users_paginated
 from faiss_index import add_to_faiss_index, search_faiss_index, remove_from_faiss_index
@@ -47,8 +48,8 @@ def setup_routes(app: FastAPI, index):
             add_to_faiss_index(index, np.array([embedding]), np.array([user_id]))
             
             # Save the updated index
-            import faiss
-            faiss.write_index(index, "face_index.bin")
+
+            faiss.write_index(index, FAISS_INDEX_PATH)
 
             process_time = time.time() - start_time
             print(f"User {username} registered successfully, processing time: {process_time:.2f} seconds")
