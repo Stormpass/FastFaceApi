@@ -22,9 +22,7 @@ def setup_routes(app: FastAPI, index):
 
             # 检查是否已存在相似人脸
             distances, indices = search_faiss_index(index, embedding)
-            print(len(distances))
-            print(distances[0])
-            if len(indices) > 0:
+            if len(indices) > 0 and distances[0] < 0.6:
                 print("已存在该人脸信息, 不再新增")
                 raise HTTPException(status_code=409, detail="Similar face already exists in the system.")
 
