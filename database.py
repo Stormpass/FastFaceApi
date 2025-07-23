@@ -2,10 +2,11 @@ import sqlite3
 from sqlite3 import Error
 import threading
 import time
+from config import DB_FILE
 
 # Global variables for storing the database connection
 _db_connection = None
-_db_file = "users.db"  # Default database filename
+_db_file = DB_FILE  # Default database filename
 _connection_lock = threading.Lock()
 _max_retry_attempts = 3
 _retry_delay = 1  # Retry delay in seconds

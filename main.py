@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-FAISS_INDEX = "face_index.bin"
+from config import FAISS_INDEX_PATH, HOST, PORT
 
 # Initialize the database
 print("Initializing database connection...")
@@ -37,7 +37,7 @@ else:
 # Load or create the FAISS index
 print("Loading FAISS index...")
 try:
-    index = faiss.read_index(FAISS_INDEX)
+    index = faiss.read_index(FAISS_INDEX_PATH)
     # Get the number of vectors in the index
     num_vectors = index.ntotal
     print(f"Successfully loaded FAISS index with {num_vectors} vectors.")
@@ -56,7 +56,7 @@ except (RuntimeError, IOError) as e:
                 raise ValueError("Invalid embedding vector data.")
                 
             index = create_faiss_index(embeddings, user_ids)
-            faiss.write_index(index, FAISS_INDEX)
+            faiss.write_index(index, FAISS_INDEX_PATH)
             print(f"Successfully created a new FAISS index with {len(users)} users.")
         except Exception as ex:
             print(f"Error creating FAISS index: {ex}")
@@ -74,4 +74,4 @@ except (RuntimeError, IOError) as e:
 setup_routes(app, index)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=HOST, port=PORT)
