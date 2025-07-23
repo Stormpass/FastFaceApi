@@ -26,5 +26,11 @@ def get_face_embedding(image: Image.Image):
     if len(faces) == 0:
         return None
     
-    # Return the embedding vector of the first detected face
-    return faces[0].embedding
+    # Get the embedding from the first detected face
+    embedding = faces[0].embedding
+
+    # L2 normalization
+    norm = np.linalg.norm(embedding)
+    normalized_embedding = embedding / norm
+
+    return normalized_embedding.astype(np.float32)

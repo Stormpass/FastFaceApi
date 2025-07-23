@@ -8,6 +8,7 @@ import numpy as np
 from database import get_db_connection, create_table, get_all_users
 from faiss_index import create_faiss_index
 from api_routes import setup_routes
+from config import FAISS_INDEX_PATH, HOST, PORT
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,7 +20,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-from config import FAISS_INDEX_PATH, HOST, PORT
 
 # Initialize the database
 print("Initializing database connection...")

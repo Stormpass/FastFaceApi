@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 import io
 import time
-
+from config import FACE_RECOGNITION_THRESHOLD
 from face_recognition import get_face_embedding
 from database import get_db_connection, insert_user, get_all_users, check_username_exists, get_user_by_username, delete_user_by_username, get_users_paginated
 from faiss_index import add_to_faiss_index, search_faiss_index, remove_from_faiss_index
@@ -33,7 +33,8 @@ def setup_routes(app: FastAPI, index):
 
             # Check for similar faces
             distances, indices = search_faiss_index(index, embedding)
-            if len(indices) > 0 and distances[0] < 0.6:
+            print(f"distances is {distances[0]}")
+            if len(indices) > 0 and distances[0] < FACE_RECOGNITION_THRESHOLD:
                 print(f"Similar face already exists, distance: {distances[0]}, not adding new user")
                 raise HTTPException(status_code=409, detail="A similar face already exists in the system")
 
@@ -131,8 +132,8 @@ def setup_routes(app: FastAPI, index):
 
             # Search for similar faces
             distances, indices = search_faiss_index(index, query_embedding)
-
-            if len(indices) == 0 or distances[0] > 0.6:
+            print(f"distances is {distances[0]}")
+            if len(indices) == 0 or distances[0] > FACE_RECOGNITION_THRESHOLD:
                 process_time = time.time() - start_time
                 print(f"No similar faces found, processing time: {process_time:.2f} seconds")
                 return JSONResponse(
