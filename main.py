@@ -1,47 +1,76 @@
 import uvicorn
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 import faiss
-
-from database import create_connection, create_table, get_all_users
-from faiss_index import create_faiss_index
-from api_routes import setup_routes
+import sys
 import numpy as np
 
-app = FastAPI()
+from database import get_db_connection, create_table, get_all_users
+from faiss_index import create_faiss_index
+from api_routes import setup_routes
 
-DATABASE = "users.db"
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    print("Application startup")
+    yield
+    # Shutdown
+    print("Application shutdown")
+
+app = FastAPI(lifespan=lifespan)
+
 FAISS_INDEX = "face_index.bin"
 
-# 初始化
-conn = create_connection(DATABASE)
+# Initialize the database
+print("Initializing database connection...")
+conn = get_db_connection()
 if conn is not None:
-    create_table(conn)
+    if create_table():
+        print("Database table initialized successfully.")
+    else:
+        print("Warning: Database table initialization failed.")
 else:
-    print("Error! cannot create the database connection.")
+    print("Error: Could not create a database connection. The application will exit.")
+    import sys
+    sys.exit(1)
 
-# 加载或创建 FAISS 索引
+# Load or create the FAISS index
+print("Loading FAISS index...")
 try:
     index = faiss.read_index(FAISS_INDEX)
-    # 获取索引中的向量数量
+    # Get the number of vectors in the index
     num_vectors = index.ntotal
-    print(f"Loaded FAISS index with {num_vectors} vectors.")
-except RuntimeError:
-    # 如果索引文件不存在, 则创建一个新的
-    users = get_all_users(conn)
+    print(f"Successfully loaded FAISS index with {num_vectors} vectors.")
+except (RuntimeError, IOError) as e:
+    print(f"Could not load FAISS index file ({str(e)}), creating a new one.")
+    # If the index file does not exist or is corrupted, create a new one
+    users = get_all_users()
     if users:
-        # 替换原来的embeddings生成代码
-        embeddings = np.array([np.frombuffer(user[2], dtype='float32') for user in users])
-        user_ids = np.array([user[0] for user in users])  # 使用数据库中的实际ID
-        index = create_faiss_index(embeddings, user_ids)  # 需要修改create_faiss_index函数
-        faiss.write_index(index, FAISS_INDEX)
-        print("Created a new FAISS index.")
+        try:
+            # Create an array of embedding vectors from database users
+            embeddings = np.array([np.frombuffer(user[2], dtype='float32') for user in users])
+            user_ids = np.array([user[0] for user in users])  # Use the actual IDs from the database
+            
+            # Check the validity of the embedding vectors
+            if embeddings.size == 0 or len(embeddings.shape) != 2:
+                raise ValueError("Invalid embedding vector data.")
+                
+            index = create_faiss_index(embeddings, user_ids)
+            faiss.write_index(index, FAISS_INDEX)
+            print(f"Successfully created a new FAISS index with {len(users)} users.")
+        except Exception as ex:
+            print(f"Error creating FAISS index: {ex}")
+            # Create an empty index as a fallback
+            index = faiss.IndexFlatL2(512)  # Assuming embedding vector dimension is 512
+            index = faiss.IndexIDMap(index)
+            print("Created an empty FAISS index due to an error.")
     else:
-        # 如果数据库中没有用户, 创建一个空的索引
-        index = faiss.IndexFlatL2(512)  # 假设嵌入向量维度为 512
+        # If there are no users in the database, create an empty index
+        index = faiss.IndexFlatL2(512)  # Assuming embedding vector dimension is 512
         index = faiss.IndexIDMap(index)
-        print("Created an empty FAISS index.")
+        print("No users in the database, created an empty FAISS index.")
 
-# 设置API路由
+# Set up API routes
 setup_routes(app, index)
 
 if __name__ == "__main__":

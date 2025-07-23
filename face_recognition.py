@@ -3,27 +3,28 @@ import numpy as np
 from PIL import Image
 import cv2
 
-# 加载人脸识别模型
+# Load the face recognition model
 model = insightface.app.FaceAnalysis(providers=['CPUExecutionProvider'])
 model.prepare(ctx_id=0, det_size=(640, 640))
 
 def get_face_embedding(image: Image.Image):
-    """_summary_
+    """
+    Extracts the face embedding from an image.
 
     Args:
-        image (Image.Image): _description_
+        image (Image.Image): The input image in PIL format.
 
     Returns:
-        _type_: _description_
+        numpy.ndarray: The face embedding vector, or None if no face is detected.
     """
-    # 将 PIL Image 转换为 cv2 格式
+    # Convert PIL Image to cv2 format
     img_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     
-    # 获取人脸信息
+    # Get face information
     faces = model.get(img_cv)
     
     if len(faces) == 0:
         return None
     
-    # 返回第一个检测到的人脸的嵌入向量
+    # Return the embedding vector of the first detected face
     return faces[0].embedding
