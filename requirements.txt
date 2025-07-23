@@ -1,9 +1,9 @@
 fastapi==0.116.1
 uvicorn==0.35.0
-numpy==2.0.2
-faiss-cpu==1.11.0.post1
+numpy==2.2.6
+faiss-cpu==1.11.0
 Pillow==11.3.0
 opencv-python==4.12.0.88
 insightface==0.7.3
-onnxruntime==1.19.2
+onnxruntime==1.22.1
 python-multipart==0.0.20
