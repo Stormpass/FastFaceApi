@@ -7,9 +7,7 @@ PORT = 8000
 # --- Database Settings ---
 DB_FILE = "db/users.db"
 
-# --- FAISS Index Settings ---
-FAISS_INDEX_PATH = "db/faiss_index.bin"
-
 
 # --- Face Recognition Settings ---
 FACE_RECOGNITION_THRESHOLD = 0.8
+FACE_EMBEDDING_DIMENSION = 512

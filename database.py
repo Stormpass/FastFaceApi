@@ -181,6 +181,31 @@ def check_username_exists(username, conn=None):
         print(f"Error checking username: {e}")
         return False
 
+def get_user_by_id(user_id, conn=None):
+    """
+    Gets user information by user ID.
+    
+    :param user_id: The user ID.
+    :param conn: A Connection object. If None, the shared connection is used.
+    :return: A dictionary of user information, or None if not found.
+    """
+    if user_id is None:
+        return None
+        
+    if conn is None:
+        conn = get_db_connection()
+        if conn is None:
+            return None
+    
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Error as e:
+        print(f"Error getting user by ID: {e}")
+        return None
+
 def get_user_by_username(username, conn=None):
     """
     Gets user information by username.

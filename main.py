@@ -2,18 +2,30 @@ import uvicorn
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import faiss
-import sys
-import numpy as np
+import asyncio
 
-from database import get_db_connection, create_table, get_all_users
-from faiss_index import create_faiss_index
+from database import get_db_connection, create_table
 from api_routes import setup_routes
-from config import FAISS_INDEX_PATH, HOST, PORT
+from config import HOST, PORT, FACE_EMBEDDING_DIMENSION
+from update_faiss_index import update_index_from_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     print("Application startup")
+    # 初始化空的FAISS索引
+    index = faiss.IndexFlatL2(FACE_EMBEDDING_DIMENSION)
+    app.state.faiss_index = faiss.IndexIDMap(index)
+    print("Initialized an empty FAISS index in memory.")
+
+    # 初始化索引就绪状态标志
+    app.state.INDEX_IS_READY = False
+    print("Index is not ready yet.")
+
+    # 启动后台任务来构建索引
+    print("Scheduling FAISS index rebuild in the background.")
+    asyncio.create_task(update_index_from_db(app))
+
     yield
     # Shutdown
     print("Application shutdown")
@@ -34,44 +46,9 @@ else:
     import sys
     sys.exit(1)
 
-# Load or create the FAISS index
-print("Loading FAISS index...")
-try:
-    index = faiss.read_index(FAISS_INDEX_PATH)
-    # Get the number of vectors in the index
-    num_vectors = index.ntotal
-    print(f"Successfully loaded FAISS index with {num_vectors} vectors.")
-except (RuntimeError, IOError) as e:
-    print(f"Could not load FAISS index file ({str(e)}), creating a new one.")
-    # If the index file does not exist or is corrupted, create a new one
-    users = get_all_users()
-    if users:
-        try:
-            # Create an array of embedding vectors from database users
-            embeddings = np.array([np.frombuffer(user[2], dtype='float32') for user in users])
-            user_ids = np.array([user[0] for user in users])  # Use the actual IDs from the database
-            
-            # Check the validity of the embedding vectors
-            if embeddings.size == 0 or len(embeddings.shape) != 2:
-                raise ValueError("Invalid embedding vector data.")
-                
-            index = create_faiss_index(embeddings, user_ids)
-            faiss.write_index(index, FAISS_INDEX_PATH)
-            print(f"Successfully created a new FAISS index with {len(users)} users.")
-        except Exception as ex:
-            print(f"Error creating FAISS index: {ex}")
-            # Create an empty index as a fallback
-            index = faiss.IndexFlatL2(512)  # Assuming embedding vector dimension is 512
-            index = faiss.IndexIDMap(index)
-            print("Created an empty FAISS index due to an error.")
-    else:
-        # If there are no users in the database, create an empty index
-        index = faiss.IndexFlatL2(512)  # Assuming embedding vector dimension is 512
-        index = faiss.IndexIDMap(index)
-        print("No users in the database, created an empty FAISS index.")
-
 # Set up API routes
-setup_routes(app, index)
+# 将 index 的传递方式改为从 app.state 获取
+setup_routes(app)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=HOST, port=PORT)
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=True)
