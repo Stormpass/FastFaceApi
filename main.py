@@ -1,48 +1,54 @@
 import uvicorn
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 import faiss
+import asyncio
 
-from database import create_connection, create_table, get_all_users
-from faiss_index import create_faiss_index
+from database import get_db_connection, create_table
 from api_routes import setup_routes
-import numpy as np
+from config import HOST, PORT, FACE_EMBEDDING_DIMENSION
+from update_faiss_index import update_index_from_db
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    print("Application startup")
+    # 初始化空的FAISS索引
+    index = faiss.IndexFlatL2(FACE_EMBEDDING_DIMENSION)
+    app.state.faiss_index = faiss.IndexIDMap(index)
+    print("Initialized an empty FAISS index in memory.")
 
-DATABASE = "users.db"
-FAISS_INDEX = "face_index.bin"
+    # 初始化索引就绪状态标志
+    app.state.INDEX_IS_READY = False
+    print("Index is not ready yet.")
 
-# 初始化
-conn = create_connection(DATABASE)
+    # 启动后台任务来构建索引
+    print("Scheduling FAISS index rebuild in the background.")
+    asyncio.create_task(update_index_from_db(app))
+
+    yield
+    # Shutdown
+    print("Application shutdown")
+
+app = FastAPI(lifespan=lifespan)
+
+
+# Initialize the database
+print("Initializing database connection...")
+conn = get_db_connection()
 if conn is not None:
-    create_table(conn)
-else:
-    print("Error! cannot create the database connection.")
-
-# 加载或创建 FAISS 索引
-try:
-    index = faiss.read_index(FAISS_INDEX)
-    # 获取索引中的向量数量
-    num_vectors = index.ntotal
-    print(f"Loaded FAISS index with {num_vectors} vectors.")
-except RuntimeError:
-    # 如果索引文件不存在, 则创建一个新的
-    users = get_all_users(conn)
-    if users:
-        # 替换原来的embeddings生成代码
-        embeddings = np.array([np.frombuffer(user[2], dtype='float32') for user in users])
-        user_ids = np.array([user[0] for user in users])  # 使用数据库中的实际ID
-        index = create_faiss_index(embeddings, user_ids)  # 需要修改create_faiss_index函数
-        faiss.write_index(index, FAISS_INDEX)
-        print("Created a new FAISS index.")
+    if create_table():
+        print("Database table initialized successfully.")
     else:
-        # 如果数据库中没有用户, 创建一个空的索引
-        index = faiss.IndexFlatL2(512)  # 假设嵌入向量维度为 512
-        index = faiss.IndexIDMap(index)
-        print("Created an empty FAISS index.")
+        print("Warning: Database table initialization failed.")
+else:
+    print("Error: Could not create a database connection. The application will exit.")
+    import sys
+    sys.exit(1)
 
-# 设置API路由
-setup_routes(app, index)
+# Set up API routes
+# 将 index 的传递方式改为从 app.state 获取
+setup_routes(app)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=True)
